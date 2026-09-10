@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 
-// ===== CORS (разрешаем запросы с Netlify) =====
+// ===== CORS =====
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,14 +12,17 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-const CRYPTOBOT_TOKEN = '632503:AAMnJQ0TXNS36XhcpPaFH7dE7r8jmr10pYs';
+// ===== ТВОЙ НОВЫЙ ТОКЕН =====
+const CRYPTOBOT_TOKEN = '632503:AA2f4N05VlExwtvXsvfwjMWSuEzw6FhqHaW';
 
 const SUPABASE_URL = 'https://vynquymsxkbalctookdc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bnF1eW1zeGtiYWxjdG9va2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4ODA5OTIsImV4cCI6MjEwNDQ1Njk5Mn0.pYzzqJvaFoMDBFJ08CnkVzzsHHtaAEN3be4zBEHBicE';
 
+// ===== СОЗДАНИЕ ИНВОЙСА =====
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, user_id } = req.body;
     console.log(`📝 Создаём счёт: ${user_id} на ${amount} USDT`);
+    
     try {
         const response = await fetch('https://pay.crypt.bot/api/createInvoice', {
             method: 'POST',
@@ -34,8 +37,10 @@ app.post('/api/create-invoice', async (req, res) => {
                 description: `Пополнение на ${amount} USDT`
             })
         });
+        
         const data = await response.json();
         console.log('✅ Ответ CryptoBot:', JSON.stringify(data));
+        
         if (data.ok) {
             res.json({ pay_url: data.result.pay_url });
         } else {
@@ -47,6 +52,7 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 });
 
+// ===== ВЕБХУК =====
 app.post('/webhook', async (req, res) => {
     const data = req.body;
     console.log('📨 Вебхук:', JSON.stringify(data));
