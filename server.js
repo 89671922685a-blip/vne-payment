@@ -12,7 +12,6 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// ===== ПРАВИЛЬНЫЙ ТОКЕН =====
 const CRYPTOBOT_TOKEN = '632503:AA2f4N05VlExwtvXsvfWjMWSuEzw6FhqHaW';
 
 const SUPABASE_URL = 'https://vynquymsxkbalctookdc.supabase.co';
@@ -42,7 +41,10 @@ app.post('/api/create-invoice', async (req, res) => {
         console.log('✅ Ответ CryptoBot:', JSON.stringify(data));
         
         if (data.ok) {
-            res.json({ pay_url: data.result.pay_url });
+            res.json({ 
+                pay_url: data.result.pay_url,
+                mini_app_invoice_url: data.result.mini_app_invoice_url 
+            });
         } else {
             res.status(400).json({ error: data.error || 'Ошибка CryptoBot' });
         }
