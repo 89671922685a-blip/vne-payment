@@ -12,8 +12,8 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// ===== ТВОЙ НОВЫЙ ТОКЕН =====
-const CRYPTOBOT_TOKEN = '632503:AA2f4N05VlExwtvXsvfwjMWSuEzw6FhqHaW';
+// ===== ПРАВИЛЬНЫЙ ТОКЕН =====
+const CRYPTOBOT_TOKEN = '632503:AA2f4N05VlExwtvXsvfWjMWSuEzw6FhqHaW';
 
 const SUPABASE_URL = 'https://vynquymsxkbalctookdc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bnF1eW1zeGtiYWxjdG9va2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4ODA5OTIsImV4cCI6MjEwNDQ1Njk5Mn0.pYzzqJvaFoMDBFJ08CnkVzzsHHtaAEN3be4zBEHBicE';
