@@ -54,7 +54,7 @@ app.post('/api/create-invoice', async (req, res) => {
     }
 });
 
-// ===== ВЕБХУК =====
+// ===== ВЕБХУК (ПОПОЛНЕНИЕ) =====
 app.post('/webhook', async (req, res) => {
     const data = req.body;
     console.log('📨 Вебхук:', JSON.stringify(data));
@@ -66,6 +66,7 @@ app.post('/webhook', async (req, res) => {
         console.log(`💵 ${user_id} пополнил ${amount} USDT`);
         
         try {
+            // 1. Начисляем игроку баланс
             const getRes = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${user_id}&select=balance`, {
                 headers: {
                     'apikey': SUPABASE_KEY,
@@ -90,12 +91,125 @@ app.post('/webhook', async (req, res) => {
                 
                 console.log(`✅ Баланс ${user_id}: ${currentBalance} → ${newBalance}`);
             }
+            
+            // 2. Добавляем 100% в банк казино
+            const casinoRes = await fetch(`${SUPABASE_URL}/rest/v1/casino?id=eq.1&select=*`, {
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`
+                }
+            });
+            const casino = (await casinoRes.json())[0];
+            
+            if (casino) {
+                const newBank = (casino.bank || 0) + amount;
+                const newDeposits = (casino.total_deposits || 0) + amount;
+                
+                await fetch(`${SUPABASE_URL}/rest/v1/casino?id=eq.1`, {
+                    method: 'PATCH',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        bank: newBank,
+                        total_deposits: newDeposits
+                    })
+                });
+                
+                console.log(`🏦 Банк казино: ${casino.bank} → ${newBank}`);
+            }
         } catch(e) {
             console.error('❌ Ошибка начисления:', e);
         }
     }
     
     res.json({ ok: true });
+});
+
+// ===== ПОЛУЧИТЬ БАНК =====
+app.get('/api/casino-bank', async (req, res) => {
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/casino?id=eq.1&select=*`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const data = await response.json();
+        res.json(data[0] || { bank: 0, total_deposits: 0, total_payouts: 0 });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ===== ВЫПЛАТА ИЗ БАНКА =====
+app.post('/api/casino-payout', async (req, res) => {
+    const { amount, user_id } = req.body;
+    console.log(`💸 Запрос выплаты: ${amount} USDT для ${user_id}`);
+    
+    try {
+        // Проверяем банк
+        const casinoRes = await fetch(`${SUPABASE_URL}/rest/v1/casino?id=eq.1&select=*`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const casino = (await casinoRes.json())[0];
+        
+        if (!casino || casino.bank < amount) {
+            console.log(`❌ Недостаточно средств в банке: ${casino?.bank || 0} < ${amount}`);
+            return res.status(400).json({ error: 'Недостаточно средств в казино' });
+        }
+        
+        // Списываем из банка
+        const newBank = casino.bank - amount;
+        const newPayouts = (casino.total_payouts || 0) + amount;
+        
+        await fetch(`${SUPABASE_URL}/rest/v1/casino?id=eq.1`, {
+            method: 'PATCH',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bank: newBank,
+                total_payouts: newPayouts
+            })
+        });
+        
+        console.log(`✅ Выплата ${amount} USDT. Банк: ${casino.bank} → ${newBank}`);
+        res.json({ ok: true, bank: newBank });
+    } catch(e) {
+        console.error('❌ Ошибка выплаты:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ===== СТАТИСТИКА КАЗИНО =====
+app.get('/api/casino-stats', async (req, res) => {
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/casino?id=eq.1&select=*`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const data = await response.json();
+        const casino = data[0] || { bank: 0, total_deposits: 0, total_payouts: 0 };
+        
+        res.json({
+            bank: casino.bank || 0,
+            total_deposits: casino.total_deposits || 0,
+            total_payouts: casino.total_payouts || 0,
+            profit: (casino.total_deposits || 0) - (casino.total_payouts || 0)
+        });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 app.get('/', (req, res) => res.send('VNE Payment Server 🚀'));
