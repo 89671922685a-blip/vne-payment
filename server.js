@@ -1,5 +1,15 @@
 const express = require('express');
 const app = express();
+
+// ===== CORS (разрешаем запросы с Netlify) =====
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
+
 app.use(express.json());
 
 const CRYPTOBOT_TOKEN = '632503:AAMnJQ0TXNS36XhcpPaFH7dE7r8jmr10pYs';
@@ -9,6 +19,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 app.post('/api/create-invoice', async (req, res) => {
     const { amount, user_id } = req.body;
+    console.log(`📝 Создаём счёт: ${user_id} на ${amount} USDT`);
     try {
         const response = await fetch('https://pay.crypt.bot/api/createInvoice', {
             method: 'POST',
@@ -24,8 +35,14 @@ app.post('/api/create-invoice', async (req, res) => {
             })
         });
         const data = await response.json();
-        res.json({ pay_url: data.result.pay_url });
+        console.log('✅ Ответ CryptoBot:', JSON.stringify(data));
+        if (data.ok) {
+            res.json({ pay_url: data.result.pay_url });
+        } else {
+            res.status(400).json({ error: data.error || 'Ошибка CryptoBot' });
+        }
     } catch(e) {
+        console.error('❌ Ошибка:', e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -38,7 +55,7 @@ app.post('/webhook', async (req, res) => {
         const user_id = data.payload.payload;
         const amount = parseFloat(data.payload.amount);
         
-        console.log(`💵 Платёж: ${user_id} пополнил ${amount} USDT`);
+        console.log(`💵 ${user_id} пополнил ${amount} USDT`);
         
         try {
             const getRes = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${user_id}&select=balance`, {
@@ -63,7 +80,7 @@ app.post('/webhook', async (req, res) => {
                     body: JSON.stringify({ balance: newBalance })
                 });
                 
-                console.log(`✅ Баланс ${user_id} обновлён: ${currentBalance} → ${newBalance}`);
+                console.log(`✅ Баланс ${user_id}: ${currentBalance} → ${newBalance}`);
             }
         } catch(e) {
             console.error('❌ Ошибка начисления:', e);
